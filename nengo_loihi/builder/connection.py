@@ -439,6 +439,10 @@ def build_chip_connection(model, conn):
         return build_full_chip_connection(model, conn)
 
 
+def slice_is_none(advanced_slice):
+    return isinstance(advanced_slice, slice) and advanced_slice == slice(None)
+
+
 def build_full_chip_connection(model, conn):  # noqa: C901
     """Build dense or sparse connections on-chip"""
 
@@ -471,7 +475,7 @@ def build_full_chip_connection(model, conn):  # noqa: C901
     if isinstance(conn.pre_obj, Node) and not isinstance(
         conn.pre_obj, ChipReceiveNeurons
     ):
-        assert conn.pre_slice == slice(None)
+        assert slice_is_none(conn.pre_slice)
 
         weights = expand_matrix(transform, shape=(conn.post.size_in, conn.pre.size_out))
 
@@ -549,7 +553,7 @@ def build_full_chip_connection(model, conn):  # noqa: C901
         if isinstance(post_obj, LoihiProbe):
             # use non-spiking decode neurons for voltage probing
             assert len(post_obj.target) == 0 or post_obj.target == [None]
-            assert post_slice == slice(None)
+            assert slice_is_none(post_slice)
 
             # use the same scaling as the ensemble does, to get good
             #  decodes.  Note that this assumes that the decoded value
@@ -656,12 +660,12 @@ def build_full_chip_connection(model, conn):  # noqa: C901
 
     if isinstance(post_obj, LoihiProbe):
         assert post_obj.target == [None]
-        assert post_slice == slice(None)
+        assert slice_is_none(post_slice)
         post_obj.target[0] = mid_obj
         model.add_probe(post_obj)
     elif isinstance(conn.post_obj, Neurons):
         assert isinstance(post_obj, LoihiBlock)
-        assert post_slice == slice(None)
+        assert slice_is_none(post_slice)
         if loihi_weights is None:
             raise NotImplementedError("Need weights for connection to neurons")
 
@@ -691,8 +695,8 @@ def build_full_chip_connection(model, conn):  # noqa: C901
             raise NotImplementedError()
     elif isinstance(conn.post_obj, Ensemble) and conn.solver.weights:
         assert isinstance(post_obj, LoihiBlock)
-        assert pre_slice == slice(None), "Not implemented"
-        assert post_slice == slice(None)
+        assert slice_is_none(pre_slice), "Not implemented"
+        assert slice_is_none(post_slice)
         assert loihi_weights.ndim == 2
         n1, n2 = loihi_weights.shape
         assert post_obj.n_neurons == n2
@@ -715,8 +719,8 @@ def build_full_chip_connection(model, conn):  # noqa: C901
             raise NotImplementedError()
     elif isinstance(conn.post_obj, Ensemble):
         assert isinstance(post_obj, LoihiBlock)
-        assert pre_slice == slice(None), "Not implemented"
-        assert post_slice == slice(None)
+        assert slice_is_none(pre_slice), "Not implemented"
+        assert slice_is_none(post_slice)
         assert target_encoders is not None
         if target_encoders not in post_obj.named_synapses:
             build_decode_neuron_encoders(model, conn.post_obj, kind=target_encoders)
@@ -801,7 +805,7 @@ def build_conv2d_connection(model, transform, conn):
 
     # --- post
     assert isinstance(conn.post_obj, Neurons)
-    assert conn.post_slice == slice(None)
+    assert slice_is_none(conn.post_slice)
 
     gain = model.params[conn.post_obj.ensemble].gain
     if not np.all(gain == gain[0]):
