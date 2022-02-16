@@ -42,12 +42,13 @@ def make_channel_shape(spatial_shape, n_channels, channels_last):
     version.parse(nengo.__version__) <= version.parse("3.1.0"),
     reason="npconv2d had bugs that were fixed in nengo>3.1.0",
 )
-@pytest.mark.parametrize("channels_last", [False, True])
+@pytest.mark.parametrize("groups", [1, 3])
+@pytest.mark.parametrize("channels_last", [True])
 @pytest.mark.parametrize("padding", ["valid", "same"])
 @pytest.mark.parametrize("strides", [(1, 1), (2, 2), (3, 2)])
 @pytest.mark.parametrize("kernel_size", [(1, 1), (3, 3), (6, 6)])
 @pytest.mark.parametrize("spatial_shape", [(6, 6), (7, 9)])
-@pytest.mark.parametrize("transpose", [False, True])
+@pytest.mark.parametrize("transpose", [False])
 def test_conv2d_loihi_weights(
     transpose,
     spatial_shape,
@@ -55,6 +56,7 @@ def test_conv2d_loihi_weights(
     strides,
     padding,
     channels_last,
+    groups,
     rng,
     allclose,
 ):
@@ -62,10 +64,10 @@ def test_conv2d_loihi_weights(
         pytest.skip("Nengo version does not have ConvolutionTranspose")
 
     n_channels = 3
-    n_filters = 4
+    n_filters = 9
 
     inp = rng.normal(size=spatial_shape + (n_channels,))
-    kernel = rng.normal(size=kernel_size + (n_channels,) + (n_filters,))
+    kernel = rng.normal(size=kernel_size + (n_channels//groups,) + (n_filters,))
 
     if transpose:
         transform = nengo.transforms.ConvolutionTranspose(
@@ -90,6 +92,7 @@ def test_conv2d_loihi_weights(
             padding=padding,
             channels_last=channels_last,
             init=kernel,
+            groups=groups
         )
         ref_out = np_conv2d(
             inp[None, ...], kernel, pad=padding.upper(), stride=strides
