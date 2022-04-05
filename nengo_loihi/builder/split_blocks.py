@@ -471,15 +471,16 @@ def split_synapse(old_block, old_synapse, new_blocks, validate=ValidationLevel.M
         indices = old_synapse.indices[weight_idx]
         if validate >= ValidationLevel.MINIMAL:
             assert all(
-                np.array_equal(i, indices[0]) for i in indices[1:]
-            ), "All atoms must target same indices"
-        indices = indices[0]
+                np.array_equal(i.shape, indices[0].shape) for i in indices[1:]
+            ), "All atoms must target same number of indices"
+        indices = indices
 
         base = old_synapse.axon_compartment_base(axon_idx)
         if base is None:
             continue  # this axon is not used
 
         axon_comp_ids = base + indices
+        axon_comp_ids = axon_comp_ids.flatten()
         old_input_axons[axon_idx] = (
             weight_idx,
             base,
@@ -575,8 +576,9 @@ def set_new_synapse_weights(
             i_valid = np.array(
                 [i in block_comp_ids.set for i in old_axon_comp_ids.flat], dtype=bool
             )
-            ww = old_weights[:, i_valid]
-            ii = old_indices[:, i_valid]
+            c = old_weights.shape[0]
+            ww = old_weights.flatten()[i_valid].reshape(c, -1)
+            ii = old_indices.flatten()[i_valid].reshape(c, -1)
             valid_comp_ids = old_axon_comp_ids[i_valid]
 
         # Map old compartment inds to new compartment inds. Mapping is given by
@@ -590,7 +592,7 @@ def set_new_synapse_weights(
 
             # map old inds directly to new inds
             new_ii = np.array([compartment_map[i] for i in valid_comp_ids])
-            new_ii = np.tile(new_ii, (ii.shape[0], 1))
+            new_ii = new_ii.reshape(ii.shape)
             assert new_ii.shape == ii.shape
         else:
             # map old compartment indices to new. Then figure out new base.
@@ -606,7 +608,7 @@ def set_new_synapse_weights(
             new_base = new_base % 256
 
             new_ii = new_axon_comp_ids - new_base
-            new_ii = np.tile(new_ii, (ii.shape[0], 1))
+            new_ii = new_ii.reshape(ii.shape)
             assert new_ii.shape == ii.shape
 
         key = (array_hash(ww), array_hash(new_ii))

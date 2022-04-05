@@ -67,7 +67,7 @@ def test_conv2d_loihi_weights(
     n_filters = 9
 
     inp = rng.normal(size=spatial_shape + (n_channels,))
-    kernel = rng.normal(size=kernel_size + (n_channels//groups,) + (n_filters,))
+    kernel = rng.normal(size=kernel_size + (n_channels // groups,) + (n_filters,))
 
     if transpose:
         transform = nengo.transforms.ConvolutionTranspose(
@@ -92,7 +92,7 @@ def test_conv2d_loihi_weights(
             padding=padding,
             channels_last=channels_last,
             init=kernel,
-            groups=groups
+            groups=groups,
         )
         ref_out = np_conv2d(
             inp[None, ...], kernel, pad=padding.upper(), stride=strides

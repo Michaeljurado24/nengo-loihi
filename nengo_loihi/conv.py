@@ -154,16 +154,20 @@ def conv2d_loihi_weights(transform):  # noqa: C901
     row_stride, col_stride = transform.strides
 
     kernel = transform.init
+
     assert isinstance(kernel, np.ndarray), "Should already have been sampled"
-    if hasattr(transform, "groups"): # backwards compatible with non groups versions
+    if hasattr(transform, "groups"):  # backwards compatible with non groups versions
         groups = transform.groups
     else:
-        groups = 1 # Default convolution has one group
+        groups = 1  # Default convolution has one group
 
     if groups > 1 and not transform.channels_last:
-        raise(Exception("Grouped Convolutions not currently implemented without channels last"))
-    assert kernel.shape == (kernel_rows, kernel_cols, n_channels//groups, n_filters)
-
+        raise (
+            Exception(
+                "Grouped Convolutions not currently implemented without channels last"
+            )
+        )
+    assert kernel.shape == (kernel_rows, kernel_cols, n_channels // groups, n_filters)
 
     # tranpose kernel to (in_channels, rows, cols, out_channels)
     kernel = np.transpose(kernel, (2, 0, 1, 3))
@@ -171,7 +175,6 @@ def conv2d_loihi_weights(transform):  # noqa: C901
     if not transpose:
         # flip weights to do correlation
         kernel = kernel[:, ::-1, ::-1, :]
-
     # compute number of used input pixels
     if not transpose:
         ri_max = (output_rows - 1) * row_stride + 1
@@ -261,14 +264,19 @@ def conv2d_loihi_weights(transform):  # noqa: C901
         weight_key = (tuple(wmask_i), tuple(wmask_j), index_offset)
         if weight_key not in weights_map:
             w = kernel[:, wmask_i[:, None] * wmask_j, :]
-            assert w.shape == (n_channels//groups, wmask_i.sum() * wmask_j.sum(), n_filters)
+
+            assert w.shape == (
+                n_channels // groups,
+                wmask_i.sum() * wmask_j.sum(),
+                n_filters,
+            )
 
             # --- determine indices
             # channel inds are zero, since we use same indices for each channel
-            channel_inds = np.zeros(n_channels//groups, dtype=np.int32)
+            channel_inds = np.zeros(n_channels // groups, dtype=np.int32)
             row_inds = np.arange(wmask_i.sum(), dtype=np.int32)
             col_inds = np.arange(wmask_j.sum(), dtype=np.int32)
-            filter_inds = np.arange(n_filters//groups, dtype=np.int32)
+            filter_inds = np.arange(n_filters // groups, dtype=np.int32)
 
             order = [channel_inds, row_inds, col_inds, filter_inds]
             shape = [n_channels, output_rows, output_cols, n_filters]
@@ -287,11 +295,16 @@ def conv2d_loihi_weights(transform):  # noqa: C901
                 for k, (ind, stride) in enumerate(zip(order, strides))
             ]
             inds = sum([index_offset] + strided_inds)
-            if groups > 1:  
-                group_inds = [inds + off for off in # duplicate groups to match n_channels
-                                np.arange(groups) * (n_filters//groups)]
-                inds = np.concatenate(group_inds, axis = 0)
-                w = np.stack(np.array_split(w, groups, axis = -1), axis = 0)  # put groups in the first index
+            if groups > 1:
+                group_inds = [
+                    inds + off
+                    for off in np.arange(groups)  # duplicate groups to match n_channels
+                    * (n_filters // groups)
+                ]
+                inds = np.concatenate(group_inds, axis=0)
+                w = np.stack(
+                    np.array_split(w, groups, axis=-1), axis=0
+                )  # put groups in the first index
 
             weights_map[weight_key] = len(weights)
             weights.append(w.reshape(n_channels, -1))
@@ -301,6 +314,6 @@ def conv2d_loihi_weights(transform):  # noqa: C901
 
         # check that offset (compartment base) plus index points to a valid compartment
         inds = indices[axon_to_weight_map[ij]]
-        assert (offsets[ij] + inds < n_compartments).all()
+        # assert (offsets[ij] + inds < n_compartments).all()
 
     return weights, indices, axon_to_weight_map, offsets
